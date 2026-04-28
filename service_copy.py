@@ -32,6 +32,12 @@ PRIORITIZATION_SPECIFICATION = """When you are asked about prioritization of CVE
 
 
 def _get_llm(openai_config: OpenAIConfig, human_response: bool = False) -> ChatOpenAI:
+    """
+    This function sets instance of ChatOpenAI class.
+    :param openai_config: configuration for ChatOpenAI instance
+    :param human_response: whether the instance is used to generate human explanation
+    :return: instance of ChatOpenAI class
+    """
     print(f"Model {openai_config.response_model if human_response else openai_config.query_model}, temperature: {openai_config.human_transformer_temperature
         if human_response
         else openai_config.query_builder_temperature}")
@@ -46,6 +52,12 @@ def _get_llm(openai_config: OpenAIConfig, human_response: bool = False) -> ChatO
 
 
 def get_user_language(question: str, openai_config: OpenAIConfig) -> str:
+    """
+    This function determines language of a string.
+    :param question: string to be focused on
+    :param openai_config: configuration for ChatOpenAI instance
+    :return: language used in the question
+    """
     llm = _get_llm(openai_config)
     prompt_ = f"Return just the name of the language the following text is in: {question}"
     message_ = llm.invoke(prompt_)
@@ -53,6 +65,12 @@ def get_user_language(question: str, openai_config: OpenAIConfig) -> str:
 
 
 def get_query_builder_chain(graph_: Neo4jGraph, openai_config: OpenAIConfig) -> Runnable[Input, Output]:
+    """
+    Creates chain used for creating queries.
+    :param graph_: Neo4j graph
+    :param openai_config: configuration for ChatOpenAI instance
+    :return: chain used for creating queries
+    """
     cypher_llm = _get_llm(openai_config)
     cypher_template = """Based on the Neo4j graph schema below, write a Cypher query that would answer the user's question.
 
@@ -102,6 +120,12 @@ def get_query_builder_chain(graph_: Neo4jGraph, openai_config: OpenAIConfig) -> 
 
 
 def get_visualization_query_builder_chain(graph_: Neo4jGraph, openai_config: OpenAIConfig) -> Runnable[Input, Output]:
+    """
+    Creates a chain used for creating visualization queries.
+    :param graph_: Neo4j graph
+    :param openai_config: configuration for ChatOpenAI instance
+    :return: chain used for creating visualization queries
+    """
     cypher_llm = _get_llm(openai_config)
     cypher_template = """Based on the Neo4j graph schema below, write an output Cypher query that would return all vertices 
             and edges used in input Cypher query below to determine its returned results.
@@ -152,6 +176,12 @@ def get_visualization_query_builder_chain(graph_: Neo4jGraph, openai_config: Ope
 
 
 def get_result_to_human_markdown_chain(graph_: Neo4jGraph, openai_config: OpenAIConfig) -> Runnable[Input, Output]:
+    """
+    This function creates chain used for describing result from Neo4j using human words and markdown.
+    :param graph_: Neo4j graph
+    :param openai_config: configuration for ChatOpenAI instance
+    :return: chain used for converting results from Neo4j graph to human words in markdown
+    """
     cypher_llm = _get_llm(openai_config, human_response=True)
     cypher_template = """Based on the Neo4j graph schema and query below, interpret the result below. Use the following markdown format with three sections.
             **Result:** The explanation of the result of the query as short as possible in \"{language}\".
@@ -194,6 +224,12 @@ def get_result_to_human_markdown_chain(graph_: Neo4jGraph, openai_config: OpenAI
 
 
 def do_query(driver_: Driver, query_: str) -> str:
+    """
+    This function validates and executes a Neo4j query.
+    :param driver_: Neo4j driver
+    :param query_: Neo4j query
+    :return: True if passed, False otherwise
+    """
     if any(bad_word in query_.upper() for bad_word in ["CREATE", "DELETE", "DETACH", "REMOVE", "LOAD"]):
         return "Data modifications are not allowed."
 
@@ -245,6 +281,11 @@ class VulnLlamaService:
             return "Query failed with following error: " + str(exc)
 
     def answer(self, question: str) -> dict[str, Any]:
+        """
+        This method creates overall answer from conversational service.
+        :param question: human question to be answered
+        :return: dictionary containing answer, Neo4j queries, result, and human explanation
+        """
         language = get_user_language(question, self._openai_config)
         logger.info("Detected language: %s", language)
         query = self._query_builder_chain.invoke({"question": question})
